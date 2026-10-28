@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   Design tokens — VoxAudit Intelligence
+   Nilai hex brand dari Phase 1 Design Review Package. Disimpan sebagai
+   kanal RGB agar Tailwind bisa memberi opacity (bg-primary/10, dst.).
+   ========================================================================== */
+:root {
+  /* Brand shell (sidebar, top bar, login) — selalu gelap */
+  --shell-bg: 7 6 26;          /* #07061a */
+  --shell-surface: 17 16 42;   /* #11102a */
+  --shell-border: 38 37 74;    /* #26254a */
+  --shell-text: 236 236 248;   /* #ececf8 */
+  --shell-muted: 160 160 190;  /* #a0a0be */
+
+  /* Analysis canvas — terang, kontras tinggi */
+  --canvas: 246 247 249;       /* #f6f7f9 */
+  --surface: 255 255 255;      /* #ffffff */
+  --surface-2: 240 242 245;    /* #f0f2f5 */
+  --line: 223 226 232;         /* #dfe2e8 */
+  --ink: 20 22 28;             /* #14161c */
+  --muted: 84 90 104;          /* #545a68  — 7.0:1 di atas putih */
+
+  /* Brand roles */
+  --primary: 0 148 234;        /* #0094ea  brand blue: isi, focus ring, seri klien di chart */
+  --primary-strong: 0 111 176; /* #006fb0  teks link & latar tombol: 5.4:1 dengan putih */
+  --primary-soft: 230 244 253; /* #e6f4fd */
+  --ai: 176 45 149;            /* #b02d95  turunan #cf41b2 untuk teks: 5.6:1 */
+  --ai-soft: 251 236 248;      /* #fbecf8 */
+  --highlight: 0 229 255;      /* #00e5ff  hanya di shell gelap */
+
+  /* Status — semuanya ≥ 4.5:1 di atas putih */
+  --good: 26 127 55;           /* #1a7f37 */
+  --good-soft: 230 245 234;
+  --watch: 154 103 0;          /* #9a6700 */
+  --watch-soft: 255 244 214;
+  --critical: 196 32 44;       /* #c4202c */
+  --critical-soft: 253 233 234;
+
+  color-scheme: light;
+}
+
+.dark {
+  --canvas: 14 15 20;          /* #0e0f14 */
+  --surface: 23 25 32;         /* #171920 */
+  --surface-2: 31 34 43;       /* #1f222b */
+  --line: 46 50 61;            /* #2e323d */
+  --ink: 238 240 244;          /* #eef0f4 */
+  --muted: 166 172 186;        /* #a6acba */
+
+  --primary-strong: 74 182 245;/* #4ab6f5  teks link di latar gelap */
+  --primary-soft: 10 42 66;
+  --ai: 233 121 209;           /* #e979d1 */
+  --ai-soft: 58 20 52;
+
+  --good: 74 194 107;
+  --good-soft: 16 48 28;
+  --watch: 226 170 54;
+  --watch-soft: 56 42 10;
+  --critical: 248 99 99;
+  --critical-soft: 62 18 22;
+
+  color-scheme: dark;
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-canvas text-ink font-sans text-sm antialiased;
+  }
+  [dir='rtl'] body, [dir='rtl'] { font-family: 'IBM Plex Sans Arabic', Inter, sans-serif; }
+
+  /* Semua angka metrik memakai tabular numerals */
+  .num { font-variant-numeric: tabular-nums; }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--primary));
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+}
+
+@layer components {
+  .scroll-thin { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.15) transparent; }
+  .card { @apply bg-surface border border-line rounded-card shadow-card; }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 h-10 font-semibold text-sm
+           transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap;
+  }
+  .btn-primary { @apply btn bg-[#006fb0] text-white hover:bg-[#005b91]; }
+  .btn-secondary { @apply btn bg-surface text-ink border border-line hover:bg-surface-2; }
+  .btn-ghost { @apply btn text-ink hover:bg-surface-2; }
+  /* Gradien brand hanya untuk tombol utama "Create New Audit" (aturan Phase 1) */
+  .btn-brand {
+    @apply btn text-white;
+    background-image: linear-gradient(90deg, #0077c2 0%, #7c3aed 100%);
+  }
+  .btn-brand:hover { filter: brightness(1.08); }
+
+  .input {
+    @apply w-full h-10 rounded-lg border border-line bg-surface px-3 text-sm text-ink
+           placeholder:text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25;
+  }
+  .label { @apply block text-sm font-medium text-ink mb-1.5; }
+
+  /* Pola arsir untuk nilai Estimated */
+  .hatch {
+    background-image: repeating-linear-gradient(
+      135deg, currentColor 0 2px, transparent 2px 6px);
+  }
+}
