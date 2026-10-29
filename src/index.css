@@ -164,7 +164,7 @@
   position: relative;
   background: rgb(255 255 255 / 0.035);
   border: 1px solid rgb(255 255 255 / 0.09);
-  border-radius: 22px;
+  border-radius: 2px;
   transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
   transition: transform .4s cubic-bezier(.2,.7,.2,1), border-color .3s;
   isolation: isolate;
@@ -183,7 +183,7 @@
 /* Tombol */
 .lp-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
-  height: 52px; padding: 0 1.5rem; border-radius: 999px; font-weight: 700; font-size: 15px; white-space: nowrap;
+  height: 52px; padding: 0 1.5rem; border-radius: 2px; font-weight: 700; font-size: 15px; white-space: nowrap;
   transition: transform .35s cubic-bezier(.2,.7,.2,1), background-color .2s, box-shadow .3s;
 }
 .lp-btn-ember { background: rgb(var(--ember)); color: #07061a; box-shadow: 0 10px 30px -12px rgb(var(--ember) / 0.7); }

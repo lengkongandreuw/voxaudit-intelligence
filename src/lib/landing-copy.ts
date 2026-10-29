@@ -18,7 +18,7 @@ const en = {
   heroTitleA: 'Turn any link into a',
   heroTitleB: 'growth plan',
   heroTitleC: 'you can prove.',
-  heroBody: 'VoxAudit reads a business’s website, social profiles, search and AI visibility — then shows what’s holding growth back, the source behind every number, and a proposal ready to send.',
+  heroBody: 'VoxAudit reads a business’s website, social profiles, search and answer-engine presence — then shows what’s holding growth back, the source behind every number, and a proposal ready to send.',
   heroInput: 'Website or Instagram link',
   heroPlaceholder: 'cedarco.example or instagram.com/cedarco',
   heroCta: 'Run free audit',
@@ -28,10 +28,10 @@ const en = {
   heroScroll: 'Scroll',
   chipMeasured: 'Measured · PageSpeed, 12 Oct',
   chipEstimated: 'Est. · third-party panel',
-  chipAi: 'AI interpretation · reviewed',
+  chipAi: 'Summary · reviewed by your team',
 
   sourcesLabel: 'Reads public signals from',
-  sources: ['Google Search', 'PageSpeed Insights', 'Instagram', 'Facebook Pages', 'Google Business Profile', 'AI assistants', 'Google Analytics (when connected)'],
+  sources: ['Google Search', 'PageSpeed Insights', 'Instagram', 'Facebook Pages', 'Google Business Profile', 'Chat assistants', 'Google Analytics (when connected)'],
 
   statement: 'Most audits hand you a score and an adjective. VoxAudit hands you the evidence behind every number, the fix that matters most, and the proposal to sell it.',
 
@@ -40,7 +40,7 @@ const en = {
   pillars: [
     { name: 'VoxSEO', benefit: 'Find what stops search from sending you customers', detail: 'Blocked pages, slow mobile loads and missing Arabic pairs — each with the URL and date it was found.' },
     { name: 'VoxSocial', benefit: 'Hear what your audience keeps asking for', detail: 'Bios, posting rhythm and the questions buried in comments, from public data or your connected account.' },
-    { name: 'VoxAI Visibility', benefit: 'Get named when customers ask an AI assistant', detail: 'Readiness and observed visibility, scored separately — so you know what is fixable and what is measured.' },
+    { name: 'VoxAI Visibility', benefit: 'Get named when customers ask a chat assistant', detail: 'Readiness and observed visibility, scored separately — so you know what is fixable and what is measured.' },
     { name: 'Journey & CRO', benefit: 'See where interested visitors give up', detail: 'Observed friction versus hypotheses, clearly labelled until analytics turns them into measurements.' },
   ],
 
@@ -59,7 +59,7 @@ const en = {
   evidencePoints: [
     { t: 'Coverage beside every score', d: 'A 68 resting on 78% of the checks reads differently from a 68 resting on 30%.' },
     { t: 'Unavailable is never zero', d: 'If a source fails, the report says so and why — it never draws a convenient zero.' },
-    { t: 'AI text is marked', d: 'Anything written by AI carries a marker and passes human review before a client sees it.' },
+    { t: 'Written summaries are marked', d: 'Any machine-written summary carries a marker and passes human review before a client sees it.' },
   ],
   chartTitle: 'Organic search visibility',
   chartSub: 'Share of 40 tracked keywords · sample data',
@@ -111,7 +111,7 @@ const ar: Copy = {
   heroTitleA: 'حوّل أي رابط إلى',
   heroTitleB: 'خطة نمو',
   heroTitleC: 'يمكنك إثباتها.',
-  heroBody: 'يقرأ VoxAudit موقع النشاط التجاري وحساباته الاجتماعية وظهوره في البحث والذكاء الاصطناعي — ثم يوضّح ما يعيق النمو، ومصدر كل رقم، وعرضًا جاهزًا للإرسال.',
+  heroBody: 'يقرأ VoxAudit موقع النشاط التجاري وحساباته الاجتماعية وظهوره في البحث ومحركات الإجابة — ثم يوضّح ما يعيق النمو، ومصدر كل رقم، وعرضًا جاهزًا للإرسال.',
   heroInput: 'رابط الموقع أو إنستغرام',
   heroPlaceholder: 'cedarco.example أو instagram.com/cedarco',
   heroCta: 'ابدأ التدقيق المجاني',
@@ -121,10 +121,10 @@ const ar: Copy = {
   heroScroll: 'مرّر',
   chipMeasured: 'مُقاس · PageSpeed، 12 أكتوبر',
   chipEstimated: 'تقدير · لوحة طرف ثالث',
-  chipAi: 'تفسير بالذكاء الاصطناعي · تمت مراجعته',
+  chipAi: 'ملخّص · راجعه فريقك',
 
   sourcesLabel: 'يقرأ الإشارات العامة من',
-  sources: ['بحث Google', 'PageSpeed Insights', 'إنستغرام', 'صفحات فيسبوك', 'ملف Google التجاري', 'المساعدات الذكية', 'Google Analytics (عند الربط)'],
+  sources: ['بحث Google', 'PageSpeed Insights', 'إنستغرام', 'صفحات فيسبوك', 'ملف Google التجاري', 'مساعدات الدردشة', 'Google Analytics (عند الربط)'],
 
   statement: 'معظم التدقيقات تمنحك رقمًا وصفة. أما VoxAudit فيمنحك الدليل وراء كل رقم، والإصلاح الأهم، والعرض الذي تبيعه به.',
 
@@ -133,7 +133,7 @@ const ar: Copy = {
   pillars: [
     { name: 'VoxSEO', benefit: 'اكتشف ما يمنع البحث من إرسال العملاء إليك', detail: 'صفحات محجوبة وتحميل بطيء على الجوال وصفحات عربية بلا مقابل — كلٌّ مع الرابط وتاريخ اكتشافه.' },
     { name: 'VoxSocial', benefit: 'اسمع ما يسأل عنه جمهورك باستمرار', detail: 'النبذة وإيقاع النشر والأسئلة المخفية في التعليقات، من البيانات العامة أو من حسابك المربوط.' },
-    { name: 'VoxAI Visibility', benefit: 'كن الاسم الذي يذكره المساعد الذكي للعملاء', detail: 'الجاهزية والظهور الفعلي بنتيجتين منفصلتين — لتعرف ما يمكن إصلاحه وما هو مُقاس.' },
+    { name: 'VoxAI Visibility', benefit: 'كن الاسم الذي يُذكر حين يسأل العملاء مساعد الدردشة', detail: 'الجاهزية والظهور الفعلي بنتيجتين منفصلتين — لتعرف ما يمكن إصلاحه وما هو مُقاس.' },
     { name: 'Journey & CRO', benefit: 'اعرف أين يتوقف الزوار المهتمون', detail: 'احتكاك ملاحَظ مقابل فرضيات، بتوسيم واضح حتى تحوّلها التحليلات إلى قياسات.' },
   ],
 
@@ -152,7 +152,7 @@ const ar: Copy = {
   evidencePoints: [
     { t: 'التغطية بجانب كل نتيجة', d: 'نتيجة 68 مبنية على 78٪ من الفحوصات تختلف عن 68 مبنية على 30٪.' },
     { t: 'غير المتاح ليس صفرًا', d: 'إذا فشل مصدر، يذكر التقرير ذلك وسببه — ولا يرسم صفرًا مريحًا أبدًا.' },
-    { t: 'نصوص الذكاء الاصطناعي موسومة', d: 'كل ما يكتبه الذكاء الاصطناعي يحمل علامة ويمرّ بمراجعة بشرية قبل أن يراه العميل.' },
+    { t: 'الملخصات المكتوبة آليًا موسومة', d: 'كل ملخّص مكتوب آليًا يحمل علامة ويمرّ بمراجعة بشرية قبل أن يراه العميل.' },
   ],
   chartTitle: 'الظهور في البحث العضوي',
   chartSub: 'حصة 40 كلمة مفتاحية متابَعة · بيانات تجريبية',

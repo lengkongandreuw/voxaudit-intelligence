@@ -40,7 +40,7 @@ Use **Prototype controls** in the top bar to switch role, dashboard state, langu
 ## Landing page performance
 
 - No animation library: reveal, scroll progress, tilt, magnetic buttons and count-up are ~150 lines in `src/lib/motion.ts`, animating only `transform`/`opacity`.
-- The hero shows a 60 KB WebP poster of the mascot first; the 3D model and model-viewer load on idle, **desktop only**, and are skipped for reduced motion or Save-Data.
+- The hero shows a 44 KB WebP poster of the mascot (`ryan-vox-2`) first; the 3D model (1.3 MB) and model-viewer load on idle, **desktop only**, and are skipped for reduced motion or Save-Data. The model turns toward the pointer (max 28° yaw, 8° pitch, eased).
 - The app (shell, dashboard, design system) is code-split, so the landing bundle is ~87 KB gzip JS.
 - Copy contains no customer counts, ratings or testimonials (Phase 1 rule for screen #1). Numbers shown are product facts.
 

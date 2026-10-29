@@ -5,7 +5,7 @@ import { useProto } from '../lib/prototype';
 import { LANDING } from '../lib/landing-copy';
 import { homePath } from '../lib/workspace';
 import { reducedMotion, useCountUp, useMagnetic, usePointerTilt, useReveal, useScrollProgress } from '../lib/motion';
-import { Ltr, SampleBanner } from '../components/ui';
+import { Ltr } from '../components/ui';
 
 const BRAND = `${import.meta.env.BASE_URL}brand/`;
 
@@ -56,7 +56,7 @@ function AuditForm({ id, tone = 'dark' }: { id: string; tone?: 'dark' | 'ember' 
   return (
     <form onSubmit={submit} noValidate className="w-full max-w-xl">
       <label htmlFor={id} className="sr-only">{c.heroInput}</label>
-      <div className={`flex flex-col sm:flex-row gap-2 p-1.5 rounded-[28px] sm:rounded-full border transition-colors
+      <div className={`flex flex-col sm:flex-row gap-2 p-1.5 rounded-[2px] sm:rounded-[2px] border transition-colors
         ${onEmber ? 'bg-[#07061a]/10 border-[#07061a]/20 focus-within:border-[#07061a]/60' : 'bg-white/[0.05] border-white/15 focus-within:border-[rgb(var(--ember))]'}`}>
         <input
           id={id} type="text" inputMode="url" autoComplete="url" value={value}
@@ -104,7 +104,7 @@ function Nav() {
         </ul>
         <div className="ms-auto flex items-center gap-2">
           <button type="button" onClick={() => p.set('lang', p.lang === 'en' ? 'ar' : 'en')}
-            className="h-10 px-3 rounded-full text-[14px] text-white/70 hover:text-white border border-white/15">
+            className="h-10 px-3 rounded-[2px] text-[14px] text-white/70 hover:text-white border border-white/15">
             {p.lang === 'en' ? 'العربية' : 'English'}
           </button>
           <Link to="/signin" className="hidden sm:inline-flex h-10 items-center px-4 text-[14px] text-white/80 hover:text-white">{c.navSignIn}</Link>
@@ -135,9 +135,17 @@ function Nav() {
 
 /* ---------------- Hero ---------------- */
 
-/** Poster langsung tampil (LCP ringan); model 3D dimuat saat idle, hanya di desktop. */
+/**
+ * Poster langsung tampil (LCP ringan); model 3D dimuat saat idle, hanya di desktop.
+ * Ryan menoleh ke arah kursor: yang diputar modelnya (orientation), bukan kamera,
+ * dengan interpolasi halus agar tidak patah-patah.
+ */
+const MAX_YAW = 28;   // derajat ke kiri/kanan
+const MAX_PITCH = 8;  // derajat ke atas/bawah
+
 function HeroMascot() {
   const wrap = useRef<HTMLDivElement>(null);
+  const poster = useRef<HTMLImageElement>(null);
   const [mv, setMv] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -151,37 +159,55 @@ function HeroMascot() {
     return () => { if (!ric) clearTimeout(h); };
   }, []);
 
-  // Maskot menoleh mengikuti pointer (mikro-interaksi), di-throttle oleh rAF
   useEffect(() => {
-    if (!mv) return;
-    const el = wrap.current?.querySelector('model-viewer') as (HTMLElement & { cameraOrbit?: string }) | null;
-    if (!el) return;
+    if (reducedMotion() || !window.matchMedia('(hover: hover)').matches) return;
+    const model = mv ? wrap.current?.querySelector('model-viewer') ?? null : null;
     const onLoad = () => setLoaded(true);
-    el.addEventListener('load', onLoad);
+    model?.addEventListener('load', onLoad);
+
+    const target = { yaw: 0, pitch: 0 };
+    const cur = { yaw: 0, pitch: 0 };
     let raf = 0;
-    const move = (e: PointerEvent) => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        const x = e.clientX / window.innerWidth - 0.5;
-        const y = e.clientY / window.innerHeight - 0.5;
-        el.setAttribute('camera-orbit', `${(-18 - x * 40).toFixed(1)}deg ${(82 + y * 10).toFixed(1)}deg 105%`);
-      });
+    const tick = () => {
+      cur.yaw += (target.yaw - cur.yaw) * 0.08;
+      cur.pitch += (target.pitch - cur.pitch) * 0.08;
+      // Model: putar badan sungguhan. Poster: kemiringan 3D ringan selagi model belum siap.
+      model?.setAttribute('orientation', `0deg ${cur.pitch.toFixed(2)}deg ${cur.yaw.toFixed(2)}deg`);
+      if (poster.current) poster.current.style.transform = `perspective(1200px) rotateY(${(cur.yaw * 0.5).toFixed(2)}deg) rotateX(${(-cur.pitch * 0.5).toFixed(2)}deg)`;
+      const settled = Math.abs(target.yaw - cur.yaw) < 0.05 && Math.abs(target.pitch - cur.pitch) < 0.05;
+      raf = settled ? 0 : requestAnimationFrame(tick);
     };
+    const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
+    const move = (e: PointerEvent) => {
+      const r = wrap.current?.getBoundingClientRect();
+      if (!r) return;
+      // Posisi kursor relatif terhadap pusat maskot, dinormalisasi ke -1..1
+      const nx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (window.innerWidth / 2)));
+      const ny = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / (window.innerHeight / 2)));
+      target.yaw = nx * MAX_YAW;
+      target.pitch = ny * MAX_PITCH;
+      kick();
+    };
+    const reset = () => { target.yaw = 0; target.pitch = 0; kick(); };
     window.addEventListener('pointermove', move, { passive: true });
-    return () => { el.removeEventListener('load', onLoad); window.removeEventListener('pointermove', move); cancelAnimationFrame(raf); };
+    document.documentElement.addEventListener('pointerleave', reset);
+    return () => {
+      model?.removeEventListener('load', onLoad);
+      window.removeEventListener('pointermove', move);
+      document.documentElement.removeEventListener('pointerleave', reset);
+      cancelAnimationFrame(raf);
+    };
   }, [mv]);
 
   return (
-    <div ref={wrap} className="relative w-full h-full lp-float">
-      <img src={`${BRAND}ryan-vox-poster.webp`} alt="Ryan Vox, the VoxAudit robot mascot" width={560} height={942}
+    <div ref={wrap} className="relative h-full aspect-[4/5] max-w-full mx-auto lp-float">
+      <img ref={poster} src={`${BRAND}ryan-vox-2-poster.webp`} alt="Ryan Vox, the VoxAudit mascot, giving a thumbs up" width={640} height={800}
         {...{ fetchpriority: 'high' }} decoding="async"
-        className={`absolute inset-0 m-auto h-full w-auto object-contain transition-opacity duration-700 ${loaded ? 'opacity-0' : 'opacity-100'}`} />
+        className={`absolute inset-0 w-full h-full object-contain will-change-transform transition-opacity duration-700 ${loaded ? 'opacity-0' : 'opacity-100'}`} />
       {mv && createElement('model-viewer', {
-        src: `${BRAND}ryan-vox.glb`, alt: '', 'aria-hidden': 'true',
-        'camera-orbit': '-18deg 82deg 105%', 'field-of-view': '26deg', 'interaction-prompt': 'none',
-        'disable-zoom': true, 'disable-pan': true, exposure: '1.05', 'environment-image': 'neutral',
-        'interpolation-decay': '120',
+        src: `${BRAND}ryan-vox-2.glb`, alt: '', 'aria-hidden': 'true',
+        'camera-orbit': '0deg 82deg 105%', 'field-of-view': '26deg', 'interaction-prompt': 'none',
+        exposure: '1.05', 'environment-image': 'neutral',
         style: { position: 'absolute', inset: 0, width: '100%', height: '100%', background: 'transparent', opacity: loaded ? 1 : 0, transition: 'opacity .7s' },
       })}
     </div>
@@ -196,7 +222,7 @@ function EvidenceChip({ kind, label, className, delay }: { kind: 'measured' | 'e
       : <span className="w-2.5 h-2.5 rounded-full bg-[#e979d1]" />;
   return (
     <span style={{ ['--d' as string]: delay }}
-      className={`lp-chip absolute z-20 hidden md:inline-flex items-center gap-2 rounded-full bg-[#07061a]/70 backdrop-blur-md border border-white/15 px-3 py-1.5 text-[13px] text-white/85 lp-mono ${className}`}>
+      className={`lp-chip absolute z-20 hidden md:inline-flex items-center gap-2 rounded-[2px] bg-[#07061a]/70 backdrop-blur-md border border-white/15 px-3 py-1.5 text-[13px] text-white/85 lp-mono ${className}`}>
       <span aria-hidden="true">{swatch}</span>{label}
     </span>
   );
@@ -223,7 +249,7 @@ function Hero() {
 
       <div className="relative flex-1 max-w-[1320px] w-full mx-auto px-4 sm:px-6 grid lg:grid-cols-12 gap-8 items-center pt-8 lg:pt-0">
         <div className="lg:col-span-5 relative z-10 space-y-7">
-          <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[13px] text-white/75" data-reveal>
+          <p className="inline-flex items-center gap-2 rounded-[2px] border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[13px] text-white/75" data-reveal>
             <span className="w-1.5 h-1.5 rounded-full bg-[rgb(var(--ember))]" aria-hidden="true" />{c.heroKicker}
           </p>
           <h1 id="hero-title" className="lp-display font-extrabold text-[40px] leading-[1.03] sm:text-6xl xl:text-[68px]" data-reveal style={{ ['--d' as string]: '80ms' }}>
@@ -238,19 +264,19 @@ function Hero() {
           </div>
         </div>
 
-        <div className="lg:col-span-4 relative h-[40svh] sm:h-[50svh] lg:h-[74svh]">
+        <div className="lg:col-span-5 relative h-[44svh] sm:h-[52svh] lg:h-[74svh]">
           <HeroMascot />
           <EvidenceChip kind="measured" label={c.chipMeasured} className="top-[18%] -start-4 xl:-start-10" delay="0s" />
-          <EvidenceChip kind="estimated" label={c.chipEstimated} className="top-[48%] -end-6 xl:-end-16" delay="-3s" />
+          <EvidenceChip kind="estimated" label={c.chipEstimated} className="top-[56%] end-0" delay="-3s" />
           <EvidenceChip kind="ai" label={c.chipAi} className="bottom-[14%] start-0" delay="-6s" />
         </div>
 
-        <div className="lg:col-span-3 relative z-10 hidden lg:flex flex-col items-end text-end gap-2" data-reveal style={{ ['--d' as string]: '320ms' }}>
-          <p className="lp-display font-black text-[120px] leading-none tracking-tighter"><Ltr>04</Ltr></p>
+        <div className="lg:col-span-2 relative z-10 hidden lg:flex flex-col items-end text-end gap-2" data-reveal style={{ ['--d' as string]: '320ms' }}>
+          <p className="lp-display font-black text-[104px] leading-none tracking-tighter"><Ltr>04</Ltr></p>
           <p className="text-white/60 max-w-[200px]">{c.heroStatLabel}</p>
           <div className="mt-4 flex gap-1.5 flex-wrap justify-end">
             {['VoxSEO', 'VoxSocial', 'VoxAI', 'Journey'].map((m) => (
-              <span key={m} className="rounded-full border border-white/15 px-2.5 py-1 text-[12px] text-white/70 lp-mono">{m}</span>
+              <span key={m} className="rounded-[2px] border border-white/15 px-2.5 py-1 text-[12px] text-white/70 lp-mono">{m}</span>
             ))}
           </div>
         </div>
@@ -309,7 +335,7 @@ function PillarVisual({ i }: { i: number }) {
     return (
       <ul className="space-y-2 lp-mono text-[13px]" dir="ltr">
         {rows.map(([u, s, col], k) => (
-          <li key={u} className="lp-pop flex items-center justify-between gap-3 rounded-lg bg-white/[0.04] border border-white/[0.07] px-3 py-2" style={{ ['--d' as string]: `${k * 110}ms` }}>
+          <li key={u} className="lp-pop flex items-center justify-between gap-3 rounded-[2px] bg-white/[0.04] border border-white/[0.07] px-3 py-2" style={{ ['--d' as string]: `${k * 110}ms` }}>
             <span className="text-white/75 truncate">{u}</span>
             <span className="flex items-center gap-1.5 shrink-0" style={{ color: col }}><span className="w-1.5 h-1.5 rounded-full" style={{ background: col }} />{s}</span>
           </li>
@@ -322,7 +348,7 @@ function PillarVisual({ i }: { i: number }) {
     return (
       <div className="space-y-2">
         {qs.map((q, k) => (
-          <p key={q} dir="ltr" className={`lp-pop max-w-[85%] rounded-2xl px-3.5 py-2 text-[14px] ${k % 2 ? 'ms-auto bg-[rgb(var(--ember))]/15 text-[#ffb08a]' : 'bg-white/[0.06] text-white/80'}`}
+          <p key={q} dir="ltr" className={`lp-pop max-w-[85%] rounded-[2px] px-3.5 py-2 text-[14px] ${k % 2 ? 'ms-auto bg-[rgb(var(--ember))]/15 text-[#ffb08a]' : 'bg-white/[0.06] text-white/80'}`}
             style={{ ['--d' as string]: `${k * 140}ms` }}>{q}</p>
         ))}
         <p className="lp-pop lp-mono text-[12px] text-white/50 pt-1" style={{ ['--d' as string]: '480ms' }}><Ltr>31%</Ltr> of comments ask about price or availability · sample</p>
@@ -331,10 +357,10 @@ function PillarVisual({ i }: { i: number }) {
   }
   if (i === 2) {
     return (
-      <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3.5 space-y-3" dir="ltr">
+      <div className="rounded-[2px] border border-white/[0.08] bg-white/[0.03] p-3.5 space-y-3" dir="ltr">
         <p className="lp-pop text-[14px] text-white/80" style={{ ['--d' as string]: '0ms' }}>“Best family dentist in Amman?”</p>
         <div className="space-y-1.5">
-          {[0.92, 0.78, 0.6].map((w, k) => <div key={k} className="lp-grow h-2 rounded bg-white/15" style={{ ['--w' as string]: w, ['--d' as string]: `${150 + k * 120}ms` }} />)}
+          {[0.92, 0.78, 0.6].map((w, k) => <div key={k} className="lp-grow h-2 rounded-[2px] bg-white/15" style={{ ['--w' as string]: w, ['--d' as string]: `${150 + k * 120}ms` }} />)}
         </div>
         <div className="flex gap-4 lp-mono text-[12px]">
           <span className="lp-pop text-white/60" style={{ ['--d' as string]: '520ms' }}>Readiness <b className="text-white">55</b></span>
@@ -349,8 +375,8 @@ function PillarVisual({ i }: { i: number }) {
       {steps.map(([s, w], k) => (
         <li key={s} className="flex items-center gap-3">
           <span className="w-20 shrink-0 text-[13px] text-white/60">{s}</span>
-          <span className="flex-1 h-5 rounded bg-white/[0.05] overflow-hidden">
-            <span className={`lp-grow block h-full rounded ${k === 2 ? 'bg-[rgb(var(--ember))]' : 'bg-white/25'} ${k === 3 ? 'hatch text-white/40 bg-transparent border border-white/25' : ''}`}
+          <span className="flex-1 h-5 rounded-[2px] bg-white/[0.05] overflow-hidden">
+            <span className={`lp-grow block h-full rounded-[2px] ${k === 2 ? 'bg-[rgb(var(--ember))]' : 'bg-white/25'} ${k === 3 ? 'hatch text-white/40 bg-transparent border border-white/25' : ''}`}
               style={{ ['--w' as string]: w, ['--d' as string]: `${k * 140}ms` }} />
           </span>
         </li>
@@ -367,7 +393,7 @@ function PillarCard({ i, name, benefit, detail }: { i: number; name: string; ben
     <article ref={ref} className="lp-card p-6 sm:p-7 flex flex-col gap-6 min-h-[360px]" data-reveal style={{ ['--d' as string]: `${(i % 2) * 120}ms` }}>
       <div className="flex items-center justify-between">
         <span className="lp-mono text-[13px] text-white/50"><Ltr>0{i + 1}</Ltr></span>
-        <span className="lp-mono text-[13px] rounded-full border border-white/15 px-2.5 py-0.5 text-white/75">{name}</span>
+        <span className="lp-mono text-[13px] rounded-[2px] border border-white/15 px-2.5 py-0.5 text-white/75">{name}</span>
       </div>
       <div className="flex-1"><PillarVisual i={i} /></div>
       <div className="space-y-2">
@@ -398,7 +424,7 @@ function Pillars() {
 /* ---------------- Cerita scroll: satu lingkaran kerja ---------------- */
 
 function StoryMock({ step }: { step: number }) {
-  const stages = [['Website crawl', 'done'], ['Search visibility', 'done'], ['Social public data', 'run'], ['Google Business Profile', 'fail'], ['AI readiness', 'wait']] as const;
+  const stages = [['Website crawl', 'done'], ['Search visibility', 'done'], ['Social public data', 'run'], ['Google Business Profile', 'fail'], ['Answer-engine readiness', 'wait']] as const;
   const views = ['Executive', 'Marketing', 'Technical'];
   const [view, setView] = useState(0);
   useEffect(() => {
@@ -408,15 +434,15 @@ function StoryMock({ step }: { step: number }) {
   }, [step]);
 
   return (
-    <div className="rounded-[26px] bg-[#f6f7f9] text-[#14161c] p-5 sm:p-6 shadow-[0_40px_120px_-40px_rgba(255,90,31,0.45)] min-h-[380px]" dir="ltr">
+    <div className="rounded-[2px] bg-[#f6f7f9] text-[#14161c] p-5 sm:p-6 shadow-[0_40px_120px_-40px_rgba(255,90,31,0.45)] min-h-[380px]" dir="ltr">
       <div className="flex items-center justify-between mb-4">
         <span className="text-[13px] font-semibold text-[#545a68]">Cedar &amp; Co. Dental · sample</span>
-        <span className="lp-mono text-[12px] rounded-full bg-white border border-[#dfe2e8] px-2 py-0.5 text-[#545a68]">run-0412 · v2.1</span>
+        <span className="lp-mono text-[12px] rounded-[2px] bg-white border border-[#dfe2e8] px-2 py-0.5 text-[#545a68]">run-0412 · v2.1</span>
       </div>
 
       <div key={step} className="animate-[fadeIn_.5s_ease]">
         {step === 0 && (
-          <ol className="divide-y divide-[#dfe2e8] rounded-xl border border-[#dfe2e8] bg-white">
+          <ol className="divide-y divide-[#dfe2e8] rounded-[2px] border border-[#dfe2e8] bg-white">
             {stages.map(([s, st]) => (
               <li key={s} className="flex items-center gap-3 px-4 py-3 text-[15px]">
                 {st === 'done' && <CheckCircle2 className="w-5 h-5 text-[#1a7f37]" aria-hidden="true" />}
@@ -424,35 +450,35 @@ function StoryMock({ step }: { step: number }) {
                 {st === 'fail' && <XCircle className="w-5 h-5 text-[#c4202c]" aria-hidden="true" />}
                 {st === 'wait' && <Circle className="w-5 h-5 text-[#545a68]" aria-hidden="true" />}
                 <span className="flex-1">{s}</span>
-                {st === 'fail' && <span className="text-[13px] font-semibold rounded-md border border-[#dfe2e8] px-2 py-0.5">Retry</span>}
+                {st === 'fail' && <span className="text-[13px] font-semibold rounded-[2px] border border-[#dfe2e8] px-2 py-0.5">Retry</span>}
               </li>
             ))}
           </ol>
         )}
         {step === 1 && (
-          <div className="rounded-xl border border-[#dfe2e8] bg-white p-5 space-y-4">
+          <div className="rounded-[2px] border border-[#dfe2e8] bg-white p-5 space-y-4">
             <div className="flex flex-wrap gap-2 text-[12px] font-semibold">
-              <span className="rounded-md bg-[#fde9ea] text-[#c4202c] px-1.5 py-0.5">Critical</span>
-              <span className="rounded-md bg-[#f0f2f5] border border-[#dfe2e8] px-1.5 py-0.5">Measured</span>
-              <span className="lp-mono rounded-md bg-[#f0f2f5] px-1.5 py-0.5">/book-appointment</span>
+              <span className="rounded-[2px] bg-[#fde9ea] text-[#c4202c] px-1.5 py-0.5">Critical</span>
+              <span className="rounded-[2px] bg-[#f0f2f5] border border-[#dfe2e8] px-1.5 py-0.5">Measured</span>
+              <span className="lp-mono rounded-[2px] bg-[#f0f2f5] px-1.5 py-0.5">/book-appointment</span>
             </div>
             <p className="text-xl font-semibold leading-snug">Booking page is blocked from search engines (noindex)</p>
             <p className="text-[#545a68]">Found 12 Oct 2026 in the page header. Evidence preserved; edits are logged.</p>
             <div className="flex gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#006fb0] text-white px-3 h-9 text-sm font-semibold"><Check className="w-4 h-4" aria-hidden="true" />Accept</span>
-              <span className="inline-flex items-center rounded-lg border border-[#dfe2e8] px-3 h-9 text-sm font-semibold">Correct</span>
-              <span className="inline-flex items-center rounded-lg px-3 h-9 text-sm font-semibold text-[#545a68]">Dismiss</span>
+              <span className="inline-flex items-center gap-1.5 rounded-[2px] bg-[#006fb0] text-white px-3 h-9 text-sm font-semibold"><Check className="w-4 h-4" aria-hidden="true" />Accept</span>
+              <span className="inline-flex items-center rounded-[2px] border border-[#dfe2e8] px-3 h-9 text-sm font-semibold">Correct</span>
+              <span className="inline-flex items-center rounded-[2px] px-3 h-9 text-sm font-semibold text-[#545a68]">Dismiss</span>
             </div>
           </div>
         )}
         {step === 2 && (
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-[#e9ebef]">
+            <div className="grid grid-cols-3 gap-1 p-1 rounded-[2px] bg-[#e9ebef]">
               {views.map((v, k) => (
-                <span key={v} className={`text-center h-9 leading-9 rounded-md text-sm font-semibold transition-colors ${view === k ? 'bg-white shadow-sm' : 'text-[#545a68]'}`}>{v}</span>
+                <span key={v} className={`text-center h-9 leading-9 rounded-[2px] text-sm font-semibold transition-colors ${view === k ? 'bg-white shadow-sm' : 'text-[#545a68]'}`}>{v}</span>
               ))}
             </div>
-            <div className="rounded-xl border border-[#dfe2e8] bg-white p-5 min-h-[180px]">
+            <div className="rounded-[2px] border border-[#dfe2e8] bg-white p-5 min-h-[180px]">
               {view === 0 && <p className="text-lg leading-relaxed">Patients can’t find the booking page in search. Fixing it is the fastest route to more appointments this month.</p>}
               {view === 1 && <p className="text-lg leading-relaxed">Add a booking link to the Instagram bio and pin one post answering price questions — 31% of comments ask.</p>}
               {view === 2 && <p className="lp-mono text-[14px] leading-relaxed">Remove <b>&lt;meta name="robots" content="noindex"&gt;</b> from /book-appointment; resubmit sitemap; verify in Search Console.</p>}
@@ -461,14 +487,14 @@ function StoryMock({ step }: { step: number }) {
           </div>
         )}
         {step === 3 && (
-          <div className="rounded-xl border border-[#dfe2e8] bg-white divide-y divide-[#dfe2e8]">
-            {[['Technical SEO fix', 'f-101, f-103'], ['Instagram booking funnel', 'f-102'], ['AI-ready FAQ + schema', 'f-104']].map(([s, f]) => (
+          <div className="rounded-[2px] border border-[#dfe2e8] bg-white divide-y divide-[#dfe2e8]">
+            {[['Technical SEO fix', 'f-101, f-103'], ['Instagram booking funnel', 'f-102'], ['Answer-ready FAQ + schema', 'f-104']].map(([s, f]) => (
               <div key={s} className="flex items-center justify-between gap-3 px-4 py-3.5">
                 <div><p className="font-semibold">{s}</p><p className="lp-mono text-[12px] text-[#545a68]">from {f}</p></div>
                 <span className="text-[13px] text-[#545a68]">your catalog price</span>
               </div>
             ))}
-            <div className="px-4 py-3.5 flex items-center justify-between"><span className="font-semibold">Send for approval</span><span className="rounded-lg bg-[#006fb0] text-white px-3 h-9 leading-9 text-sm font-semibold">Share link</span></div>
+            <div className="px-4 py-3.5 flex items-center justify-between"><span className="font-semibold">Send for approval</span><span className="rounded-[2px] bg-[#006fb0] text-white px-3 h-9 leading-9 text-sm font-semibold">Share link</span></div>
           </div>
         )}
       </div>
@@ -492,7 +518,7 @@ function Story() {
         <div className="sticky top-16 h-[calc(100vh-64px)] max-w-[1320px] mx-auto px-6 grid grid-cols-12 gap-10 items-center">
           <ol className="col-span-5 space-y-2">
             {c.steps.map((s, i) => (
-              <li key={s.n} className={`rounded-2xl p-5 transition-all duration-500 ${step === i ? 'bg-white/[0.05] border border-white/10' : 'opacity-45 border border-transparent'}`}
+              <li key={s.n} className={`rounded-[2px] p-5 transition-all duration-500 ${step === i ? 'bg-white/[0.05] border border-white/10' : 'opacity-45 border border-transparent'}`}
                 aria-current={step === i ? 'step' : undefined}>
                 <div className="flex items-baseline gap-4">
                   <span className={`lp-mono text-[14px] ${step === i ? 'text-[rgb(var(--ember))]' : 'text-white/50'}`}><Ltr>{s.n}</Ltr></span>
@@ -504,7 +530,7 @@ function Story() {
               </li>
             ))}
             <li aria-hidden="true" className="pt-4 ps-5">
-              <div className="h-[2px] w-full bg-white/10 rounded overflow-hidden">
+              <div className="h-[2px] w-full bg-white/10 rounded-[2px] overflow-hidden">
                 <div className="h-full bg-[rgb(var(--ember))] origin-left rtl:origin-right" style={{ transform: 'scaleX(var(--p, 0))' }} />
               </div>
             </li>
@@ -542,7 +568,7 @@ function EvidenceChart() {
     { name: 'Aldara Family Dentistry', v: 12, est: true },
   ];
   return (
-    <figure className="rounded-[26px] bg-white border border-[#dfe2e8] p-6 sm:p-8 shadow-[0_30px_80px_-40px_rgba(16,24,40,0.35)]" data-reveal>
+    <figure className="rounded-[2px] bg-white border border-[#dfe2e8] p-6 sm:p-8 shadow-[0_30px_80px_-40px_rgba(16,24,40,0.35)]" data-reveal>
       <figcaption className="mb-6">
         <p className="font-semibold text-lg">{c.chartTitle}</p>
         <p className="text-[#545a68]">{c.chartSub}</p>
@@ -555,12 +581,12 @@ function EvidenceChart() {
               <span className="flex items-center justify-between gap-3 mb-2">
                 <span className={`truncate ${d.client ? 'font-semibold' : 'text-[#545a68]'}`}>{d.name}</span>
                 <span className="flex items-center gap-2 shrink-0">
-                  {d.est && <span className="rounded border border-dashed border-[#545a68]/60 px-1.5 text-[12px] text-[#545a68]">Est.</span>}
+                  {d.est && <span className="rounded-[2px] border border-dashed border-[#545a68]/60 px-1.5 text-[12px] text-[#545a68]">Est.</span>}
                   <span className="font-semibold num"><Ltr>{d.est ? '~' : ''}{d.v}%</Ltr></span>
                 </span>
               </span>
-              <span className="block h-4 rounded bg-[#f0f2f5] overflow-hidden">
-                <span className={`lp-grow block h-full rounded ${d.client ? 'bg-[#0094ea]' : d.est ? 'hatch text-[#545a68]/60 border border-[#545a68]/40' : 'bg-[#545a68]/45 group-hover:bg-[#545a68]/60'}`}
+              <span className="block h-4 rounded-[2px] bg-[#f0f2f5] overflow-hidden">
+                <span className={`lp-grow block h-full rounded-[2px] ${d.client ? 'bg-[#0094ea]' : d.est ? 'hatch text-[#545a68]/60 border border-[#545a68]/40' : 'bg-[#545a68]/45 group-hover:bg-[#545a68]/60'}`}
                   style={{ ['--w' as string]: d.v / 31, ['--d' as string]: `${i * 120}ms` }} />
               </span>
             </button>
@@ -577,7 +603,7 @@ function EvidenceChart() {
 function Evidence() {
   const c = useCopy();
   return (
-    <section id="evidence" aria-labelledby="evidence-title" className="bg-[#f6f7f9] text-[#14161c] rounded-t-[36px] sm:rounded-t-[56px]">
+    <section id="evidence" aria-labelledby="evidence-title" className="bg-[#f6f7f9] text-[#14161c]">
       <div className="max-w-[1320px] mx-auto px-4 sm:px-6 py-24 lg:py-32 grid lg:grid-cols-12 gap-12 items-center">
         <div className="lg:col-span-5 space-y-6">
           <p className="lp-mono text-[13px] uppercase text-[#545a68] flex items-center gap-3" data-reveal><LogoBars />{c.evidenceKicker}</p>
@@ -619,12 +645,12 @@ function Who() {
           <p className="lp-mono text-[13px] uppercase text-[#545a68] flex items-center gap-3" data-reveal><LogoBars />{c.whoKicker}</p>
           <h2 id="who-title" className="lp-display font-extrabold text-4xl sm:text-5xl leading-[1.04] max-w-3xl" data-reveal>{c.whoTitle}</h2>
         </div>
-        <div className="rounded-[26px] bg-[#07061a] text-white p-2 sm:p-3" data-reveal>
-          <div role="tablist" aria-label={c.whoKicker} className="grid grid-cols-3 gap-1 p-1 rounded-[20px] bg-white/[0.05]" onKeyDown={onKey}>
+        <div className="rounded-[2px] bg-[#07061a] text-white p-2 sm:p-3" data-reveal>
+          <div role="tablist" aria-label={c.whoKicker} className="grid grid-cols-3 gap-1 p-1 rounded-[2px] bg-white/[0.05]" onKeyDown={onKey}>
             {c.who.map((x, i) => (
               <button key={x.tab} ref={(el) => { tabsRef.current[i] = el; }} type="button" role="tab" id={`who-tab-${i}`} aria-controls="who-panel"
                 aria-selected={tab === i} tabIndex={tab === i ? 0 : -1} onClick={() => setTab(i)}
-                className={`h-12 rounded-2xl text-[14px] sm:text-[15px] font-semibold transition-colors ${tab === i ? 'bg-[rgb(var(--ember))] text-[#07061a]' : 'text-white/70 hover:text-white'}`}>
+                className={`h-12 rounded-[2px] text-[14px] sm:text-[15px] font-semibold transition-colors ${tab === i ? 'bg-[rgb(var(--ember))] text-[#07061a]' : 'text-white/70 hover:text-white'}`}>
                 {x.tab}
               </button>
             ))}
@@ -650,16 +676,16 @@ function Who() {
 function ReportFace({ lang }: { lang: 'en' | 'ar' }) {
   const ar = lang === 'ar';
   return (
-    <div dir={ar ? 'rtl' : 'ltr'} lang={lang} className={`rounded-[22px] bg-white text-[#14161c] p-6 h-full ${ar ? 'font-arabic' : ''}`}>
+    <div dir={ar ? 'rtl' : 'ltr'} lang={lang} className={`rounded-[2px] bg-white text-[#14161c] p-6 h-full ${ar ? 'font-arabic' : ''}`}>
       <p className="text-[13px] text-[#545a68]">{ar ? 'تقرير النمو · عرض تنفيذي' : 'Growth report · Executive view'}</p>
       <p className="text-2xl font-bold mt-1">{ar ? 'سيدار آند كو لطب الأسنان' : 'Cedar & Co. Dental'}</p>
       <div className="flex items-baseline gap-2 mt-5">
         <span className="text-5xl font-bold num"><bdi dir="ltr">68</bdi></span>
         <span className="text-[#545a68] num"><bdi dir="ltr">/ 100</bdi></span>
-        <span className="rounded-full bg-[#fff4d6] text-[#9a6700] px-2 py-0.5 text-[12px] font-semibold">{ar ? 'يحتاج إلى عمل' : 'Needs work'}</span>
+        <span className="rounded-[2px] bg-[#fff4d6] text-[#9a6700] px-2 py-0.5 text-[12px] font-semibold">{ar ? 'يحتاج إلى عمل' : 'Needs work'}</span>
       </div>
       <div className="flex items-center gap-2 mt-2 text-[13px] text-[#545a68]">
-        <span className="h-1.5 w-20 rounded-full bg-[#f0f2f5] overflow-hidden"><span className="block h-full w-[78%] bg-[#14161c]/70" /></span>
+        <span className="h-1.5 w-20 rounded-[2px] bg-[#f0f2f5] overflow-hidden"><span className="block h-full w-[78%] bg-[#14161c]/70" /></span>
         <bdi dir="ltr">78%</bdi> {ar ? 'تغطية' : 'coverage'}
       </div>
       <p className="mt-5 ps-3 border-s-2 border-[#b02d95] leading-relaxed">
@@ -688,8 +714,8 @@ function Bilingual() {
         </div>
         <div className="lg:col-span-6 [perspective:1400px]" data-reveal>
           <div className="lp-flip relative h-[340px] sm:h-[320px]" data-flipped={flipped}>
-            <div className="lp-face absolute inset-0 shadow-[0_30px_80px_-40px_rgba(16,24,40,0.45)] rounded-[22px]"><ReportFace lang="ar" /></div>
-            <div className="lp-face lp-face-back absolute inset-0 shadow-[0_30px_80px_-40px_rgba(16,24,40,0.45)] rounded-[22px]"><ReportFace lang="en" /></div>
+            <div className="lp-face absolute inset-0 shadow-[0_30px_80px_-40px_rgba(16,24,40,0.45)] rounded-[2px]"><ReportFace lang="ar" /></div>
+            <div className="lp-face lp-face-back absolute inset-0 shadow-[0_30px_80px_-40px_rgba(16,24,40,0.45)] rounded-[2px]"><ReportFace lang="en" /></div>
           </div>
         </div>
       </div>
@@ -722,7 +748,7 @@ function Final() {
           </div>
         </div>
 
-        <div className="relative overflow-hidden rounded-[32px] sm:rounded-[44px] bg-[rgb(var(--ember))] text-[#07061a] p-8 sm:p-14 lg:p-20" data-reveal>
+        <div className="relative overflow-hidden rounded-[2px] sm:rounded-[2px] bg-[rgb(var(--ember))] text-[#07061a] p-8 sm:p-14 lg:p-20" data-reveal>
           <span aria-hidden="true" dir="ltr" className="pointer-events-none absolute -bottom-[0.18em] -end-[0.05em] lp-display font-black text-[34vw] lg:text-[22vw] leading-none text-[#07061a]/[0.07] select-none">VOX</span>
           <div className="relative max-w-2xl space-y-6">
             <h2 id="final-title" className="lp-display font-extrabold text-4xl sm:text-6xl leading-[1.02]">{c.finalTitle}</h2>
@@ -758,7 +784,6 @@ export function Landing() {
   useEffect(() => { document.title = 'VoxAudit Intelligence — Growth audits you can prove'; }, []);
   return (
     <div ref={root} key={lang} className="lp min-h-screen">
-      <SampleBanner />
       <Nav />
       <main>
         <Hero />
