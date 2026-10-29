@@ -205,6 +205,25 @@
 
 /* Maskot hero */
 .lp-float { animation: lp-float 7s ease-in-out infinite; }
+.lp-stage { touch-action: pan-y; cursor: grab; }
+.lp-stage:active { cursor: grabbing; }
+/* Busur cahaya di belakang maskot: elips dengan cincin gradien (mask) + salinan blur */
+.lp-arc {
+  position: absolute; left: 50%; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from 270deg, #ff5a1f 0deg, #ff7a1a 30deg, #6d3df2 75deg, #2f6bff 90deg, #6d3df2 105deg, #ff7a1a 150deg, #ff5a1f 180deg, transparent 205deg, transparent 335deg, #ff5a1f 360deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--t, 2px)), #000 calc(100% - var(--t, 2px) + 1px), #000 99%, transparent 100%);
+          mask: radial-gradient(farthest-side, transparent calc(100% - var(--t, 2px)), #000 calc(100% - var(--t, 2px) + 1px), #000 99%, transparent 100%);
+  transform: translate3d(-50%, calc(var(--p, 0) * 80px), 0);
+}
+.lp-arc-glow { filter: blur(22px); opacity: .55; --t: 26px; }
+/* Properti melayang: bergeser berlawanan arah kursor (var --mx/--my dari JS) */
+.lp-prop { position: absolute; pointer-events: none; transform: translate3d(calc(var(--mx, 0) * var(--z, 10px)), calc(var(--my, 0) * var(--z, 10px)), 0); }
+.lp-prop > * { animation: lp-float 8s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.lp-cube { width: var(--s, 44px); height: var(--s, 44px); position: relative; transform-style: preserve-3d; transform: rotateX(calc(-24deg + var(--my, 0) * 12deg)) rotateY(calc(38deg - var(--mx, 0) * 40deg)); }
+.lp-cube i { position: absolute; inset: 0; border-radius: 2px; }
+.lp-cube i:nth-child(1) { background: var(--c1); transform: translateZ(calc(var(--s, 44px) / 2)); }
+.lp-cube i:nth-child(2) { background: var(--c2); transform: rotateY(90deg) translateZ(calc(var(--s, 44px) / 2)); }
+.lp-cube i:nth-child(3) { background: var(--c3); transform: rotateX(90deg) translateZ(calc(var(--s, 44px) / 2)); }
 @keyframes lp-float { 0%,100% { transform: translate3d(0,0,0); } 50% { transform: translate3d(0,-14px,0); } }
 .lp-chip { animation: lp-float 9s ease-in-out infinite; animation-delay: var(--d, 0s); }
 
@@ -216,7 +235,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .lp [data-reveal] { opacity: 1; transform: none; }
-  .lp-marquee-track, .lp-float, .lp-chip { animation: none; }
+  .lp-marquee-track, .lp-float, .lp-chip, .lp-prop > * { animation: none; }
   .lp-word { opacity: 1; }
   .lp-grow { transform: scaleX(var(--w, 1)); }
   .lp-pop { opacity: 1; transform: none; }

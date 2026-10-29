@@ -1,6 +1,6 @@
 import { createElement, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowDown, Check, Menu, X, Loader2, CheckCircle2, XCircle, Circle } from 'lucide-react';
+import { ArrowRight, Check, Menu, X, Link2, Move3d, Loader2, CheckCircle2, XCircle, Circle } from 'lucide-react';
 import { useProto } from '../lib/prototype';
 import { LANDING } from '../lib/landing-copy';
 import { homePath } from '../lib/workspace';
@@ -57,7 +57,7 @@ function AuditForm({ id, tone = 'dark' }: { id: string; tone?: 'dark' | 'ember' 
     <form onSubmit={submit} noValidate className="w-full max-w-xl">
       <label htmlFor={id} className="sr-only">{c.heroInput}</label>
       <div className={`flex flex-col sm:flex-row gap-2 p-1.5 rounded-[2px] sm:rounded-[2px] border transition-colors
-        ${onEmber ? 'bg-[#07061a]/10 border-[#07061a]/20 focus-within:border-[#07061a]/60' : 'bg-white/[0.05] border-white/15 focus-within:border-[rgb(var(--ember))]'}`}>
+        ${onEmber ? 'bg-[#07061a]/10 border-[#07061a]/20 focus-within:border-[#07061a]/60' : 'bg-[#0d0c28]/85 backdrop-blur-md border-white/15 focus-within:border-[rgb(var(--ember))]'}`}>
         <input
           id={id} type="text" inputMode="url" autoComplete="url" value={value}
           onChange={(e) => { setValue(e.target.value); setError(''); }}
@@ -136,95 +136,145 @@ function Nav() {
 /* ---------------- Hero ---------------- */
 
 /**
- * Poster langsung tampil (LCP ringan); model 3D dimuat saat idle, hanya di desktop.
- * Ryan menoleh ke arah kursor: yang diputar modelnya (orientation), bukan kamera,
- * dengan interpolasi halus agar tidak patah-patah.
+ * Ryan setengah badan di bawah judul. Poster langsung tampil (LCP ringan);
+ * model 3D dimuat saat idle, juga di ponsel (kecuali Save-Data / kurangi gerakan).
+ * Yang diputar modelnya (orientation), bukan kamera:
+ * - desktop: menoleh ke arah kursor;
+ * - semua perangkat: bisa diseret untuk diputar, lalu kembali pelan;
+ * - layar sentuh tanpa kursor: bergoyang pelan agar kedalaman 3D-nya terlihat.
+ * Framing kamera per ukuran layar harus sama dengan poster yang dirender.
  */
-const MAX_YAW = 28;   // derajat ke kiri/kanan
+const MAX_YAW = 30;   // derajat ke kiri/kanan saat mengikuti kursor
 const MAX_PITCH = 8;  // derajat ke atas/bawah
+const CAM = {
+  wide: { orbit: '0deg 84deg 1.45m', target: '0m 0.67m 0m', fov: '29deg' },
+  narrow: { orbit: '0deg 84deg 1.7m', target: '0m 0.68m 0m', fov: '35deg' },
+};
 
 function HeroMascot() {
-  const wrap = useRef<HTMLDivElement>(null);
-  const poster = useRef<HTMLImageElement>(null);
+  const c = useCopy();
+  const stage = useRef<HTMLDivElement>(null);
   const [mv, setMv] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [wide, setWide] = useState(() => window.matchMedia('(min-width: 1024px)').matches);
 
   useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const on = () => setWide(mq.matches);
+    mq.addEventListener('change', on);
     const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-    const capable = window.matchMedia('(min-width: 1024px) and (hover: hover)').matches && !reducedMotion() && !conn?.saveData;
-    if (!capable) return;
+    if (reducedMotion() || conn?.saveData) return () => mq.removeEventListener('change', on);
     const start = () => import('@google/model-viewer').then(() => setMv(true)).catch(() => {});
     const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
     const h = ric ? ric(start, { timeout: 2500 }) : window.setTimeout(start, 1200);
-    return () => { if (!ric) clearTimeout(h); };
+    return () => { mq.removeEventListener('change', on); if (!ric) clearTimeout(h); };
   }, []);
 
   useEffect(() => {
-    if (reducedMotion() || !window.matchMedia('(hover: hover)').matches) return;
-    const model = mv ? wrap.current?.querySelector('model-viewer') ?? null : null;
+    const el = stage.current;
+    if (!el || reducedMotion()) return;
+    const model = mv ? el.querySelector('model-viewer') : null;
     const onLoad = () => setLoaded(true);
     model?.addEventListener('load', onLoad);
+    const hover = window.matchMedia('(hover: hover)').matches;
 
-    const target = { yaw: 0, pitch: 0 };
-    const cur = { yaw: 0, pitch: 0 };
+    const target = { yaw: 0, pitch: 0, spin: 0 };
+    const cur = { yaw: 0, pitch: 0, spin: 0 };
+    let drag: { x: number; spin: number; id: number } | null = null;
+    let visible = true;
     let raf = 0;
-    const tick = () => {
+    const tick = (t: number) => {
+      if (!hover && !drag) target.yaw = Math.sin(t / 1600) * 18;   // goyang pelan di layar sentuh
       cur.yaw += (target.yaw - cur.yaw) * 0.08;
       cur.pitch += (target.pitch - cur.pitch) * 0.08;
-      // Model: putar badan sungguhan. Poster: kemiringan 3D ringan selagi model belum siap.
-      model?.setAttribute('orientation', `0deg ${cur.pitch.toFixed(2)}deg ${cur.yaw.toFixed(2)}deg`);
-      if (poster.current) poster.current.style.transform = `perspective(1200px) rotateY(${(cur.yaw * 0.5).toFixed(2)}deg) rotateX(${(-cur.pitch * 0.5).toFixed(2)}deg)`;
-      const settled = Math.abs(target.yaw - cur.yaw) < 0.05 && Math.abs(target.pitch - cur.pitch) < 0.05;
-      raf = settled ? 0 : requestAnimationFrame(tick);
+      cur.spin += (target.spin - cur.spin) * (drag ? 0.35 : 0.06);
+      const yaw = cur.yaw + cur.spin;
+      model?.setAttribute('orientation', `0deg ${cur.pitch.toFixed(2)}deg ${yaw.toFixed(2)}deg`);
+      el.style.setProperty('--mx', (-yaw / MAX_YAW).toFixed(3));
+      el.style.setProperty('--my', (-cur.pitch / MAX_PITCH).toFixed(3));
+      const settled = hover && !drag && Math.abs(target.yaw - cur.yaw) < 0.05 && Math.abs(target.pitch - cur.pitch) < 0.05 && Math.abs(target.spin - cur.spin) < 0.05;
+      raf = settled || !visible ? 0 : requestAnimationFrame(tick);
     };
-    const kick = () => { if (!raf) raf = requestAnimationFrame(tick); };
+    const kick = () => { if (!raf && visible) raf = requestAnimationFrame(tick); };
     const move = (e: PointerEvent) => {
-      const r = wrap.current?.getBoundingClientRect();
-      if (!r) return;
-      // Posisi kursor relatif terhadap pusat maskot, dinormalisasi ke -1..1
+      if (drag && e.pointerId === drag.id) { target.spin = drag.spin + (e.clientX - drag.x) * 0.45; kick(); return; }
+      if (e.pointerType !== 'mouse') return;
+      const r = el.getBoundingClientRect();
+      // Posisi kursor relatif ke pusat kepala Ryan, dinormalisasi -1..1
       const nx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (window.innerWidth / 2)));
-      const ny = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / (window.innerHeight / 2)));
+      const ny = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height * 0.35)) / (window.innerHeight / 2)));
       target.yaw = nx * MAX_YAW;
       target.pitch = ny * MAX_PITCH;
       kick();
     };
-    const reset = () => { target.yaw = 0; target.pitch = 0; kick(); };
+    const down = (e: PointerEvent) => { drag = { x: e.clientX, spin: target.spin, id: e.pointerId }; kick(); };
+    const up = (e: PointerEvent) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      drag = null;
+      // Kembali ke depan lewat jalur terpendek
+      const turns = Math.round(cur.spin / 360) * 360;
+      cur.spin -= turns; target.spin = 0; kick();
+    };
+    const reset = () => { if (hover) { target.yaw = 0; target.pitch = 0; kick(); } };
+    const io = new IntersectionObserver(([en]) => { visible = en.isIntersecting; kick(); });
+    io.observe(el);
+    el.addEventListener('pointerdown', down);
     window.addEventListener('pointermove', move, { passive: true });
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
     document.documentElement.addEventListener('pointerleave', reset);
+    kick();
     return () => {
       model?.removeEventListener('load', onLoad);
+      io.disconnect();
+      el.removeEventListener('pointerdown', down);
       window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
       document.documentElement.removeEventListener('pointerleave', reset);
       cancelAnimationFrame(raf);
     };
   }, [mv]);
 
+  const cam = wide ? CAM.wide : CAM.narrow;
   return (
-    <div ref={wrap} className="relative h-full aspect-[4/5] max-w-full mx-auto lp-float">
-      <img ref={poster} src={`${BRAND}ryan-vox-2-poster.webp`} alt="Ryan Vox, the VoxAudit mascot, giving a thumbs up" width={640} height={800}
-        {...{ fetchpriority: 'high' }} decoding="async"
-        className={`absolute inset-0 w-full h-full object-contain will-change-transform transition-opacity duration-700 ${loaded ? 'opacity-0' : 'opacity-100'}`} />
+    <div ref={stage} className={`lp-stage relative w-full mx-auto select-none max-w-[560px] aspect-[39/50] lg:max-w-[1440px] lg:aspect-[1440/760] ${mv ? '' : 'cursor-auto'}`}>
+      <picture>
+        <source media="(min-width: 1024px)" srcSet={`${BRAND}ryan-hero-wide.webp`} width={1440} height={760} />
+        <img src={`${BRAND}ryan-hero-narrow.webp`} width={780} height={1000} alt="Ryan Vox, the VoxAudit mascot, giving two thumbs up"
+          {...{ fetchpriority: 'high' }} decoding="async" draggable={false}
+          className={`absolute inset-0 w-full h-full object-contain transition-opacity duration-700 ${loaded ? 'opacity-0' : 'opacity-100'}`} />
+      </picture>
       {mv && createElement('model-viewer', {
         src: `${BRAND}ryan-vox-2.glb`, alt: '', 'aria-hidden': 'true',
-        'camera-orbit': '0deg 82deg 105%', 'field-of-view': '26deg', 'interaction-prompt': 'none',
-        exposure: '1.05', 'environment-image': 'neutral',
-        style: { position: 'absolute', inset: 0, width: '100%', height: '100%', background: 'transparent', opacity: loaded ? 1 : 0, transition: 'opacity .7s' },
+        'camera-orbit': cam.orbit, 'camera-target': cam.target, 'field-of-view': cam.fov,
+        'min-camera-orbit': 'auto auto 0.3m', 'min-field-of-view': '10deg',
+        'interaction-prompt': 'none', exposure: '1.1', 'environment-image': 'neutral', 'shadow-intensity': '0',
+        style: { position: 'absolute', inset: 0, width: '100%', height: '100%', background: 'transparent', opacity: loaded ? 1 : 0, transition: 'opacity .7s', pointerEvents: 'none' },
       })}
-    </div>
-  );
-}
 
-function EvidenceChip({ kind, label, className, delay }: { kind: 'measured' | 'estimated' | 'ai'; label: string; className: string; delay: string }) {
-  const swatch = kind === 'measured'
-    ? <span className="w-2.5 h-2.5 rounded-sm bg-white" />
-    : kind === 'estimated'
-      ? <span className="w-2.5 h-2.5 rounded-sm border border-white/70 hatch text-white/70" />
-      : <span className="w-2.5 h-2.5 rounded-full bg-[#e979d1]" />;
-  return (
-    <span style={{ ['--d' as string]: delay }}
-      className={`lp-chip absolute z-20 hidden md:inline-flex items-center gap-2 rounded-[2px] bg-[#07061a]/70 backdrop-blur-md border border-white/15 px-3 py-1.5 text-[13px] text-white/85 lp-mono ${className}`}>
-      <span aria-hidden="true">{swatch}</span>{label}
-    </span>
+      {/* Properti tambahan (CSS) di kedalaman berbeda — ikut bergeser saat Ryan berputar */}
+      <div aria-hidden="true" className="hidden lg:block">
+        <span className="lp-prop end-[10%] top-[14%]" style={{ ['--z' as string]: '26px' }}>
+          <span className="grid place-items-center w-[118px] h-[96px] rounded-[2px] border border-white/30 text-white backdrop-blur-sm"
+            style={{ background: 'linear-gradient(140deg, rgb(80 140 255 / .55), rgb(37 99 235 / .25))', transform: 'perspective(600px) rotateY(-22deg) rotateX(12deg) rotateZ(-8deg)', boxShadow: '0 20px 60px rgb(47 107 255 / .35), inset 0 1px 0 rgb(255 255 255 / .5)' }}>
+            <Link2 className="w-12 h-12 -rotate-45" strokeWidth={2.4} />
+          </span>
+        </span>
+        <span className="lp-prop end-[6%] top-[50%]" style={{ ['--z' as string]: '40px', ['--d' as string]: '-3s' }}>
+          <span className="block"><span className="lp-cube block" style={{ ['--s' as string]: '50px', ['--c1' as string]: '#2f6bff', ['--c2' as string]: '#1c47c9', ['--c3' as string]: '#6f9bff' }}><i /><i /><i /></span></span>
+        </span>
+        <span className="lp-prop start-[9%] top-[30%]" style={{ ['--z' as string]: '34px', ['--d' as string]: '-5s' }}>
+          <span className="block"><span className="lp-cube block" style={{ ['--s' as string]: '46px', ['--c1' as string]: '#ff7a1a', ['--c2' as string]: '#d9480f', ['--c3' as string]: '#ffb020' }}><i /><i /><i /></span></span>
+        </span>
+      </div>
+
+      {mv && loaded && (
+        <p className="absolute bottom-5 start-1/2 -translate-x-1/2 rtl:translate-x-1/2 z-10 inline-flex items-center gap-2 rounded-[2px] bg-[#07061a]/70 backdrop-blur-md border border-white/15 px-3 py-1.5 text-[13px] text-white/80 lp-mono pointer-events-none" style={{ animation: 'fadeIn .6s both' }}>
+          <Move3d className="w-4 h-4" aria-hidden="true" />{c.heroSpin}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -237,56 +287,38 @@ function Hero() {
   const openDemo = () => { p.set('role', 'owner'); p.set('dashState', 'populated'); p.set('signedIn', true); navigate(homePath('owner')); };
 
   return (
-    <section id="top" ref={ref} className="relative min-h-[calc(100svh-64px)] flex flex-col" aria-labelledby="hero-title">
-      {/* Wordmark raksasa di belakang maskot, bergeser pelan saat scroll */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-[6%] lg:top-[4%] flex justify-center select-none"
-        style={{ transform: 'translate3d(0, calc(var(--p, 0) * 120px), 0)' }}>
-        <span dir="ltr" className="lp-display lp-outline font-black leading-none text-[26vw] lg:text-[19vw]">VOXAUDIT</span>
+    <section id="top" ref={ref} className="relative overflow-hidden flex flex-col min-h-[calc(100svh-64px)]" aria-labelledby="hero-title">
+      {/* Busur cahaya oranye–biru + cahaya horizon di bawah */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-x-0 top-[28%] h-[60%]" style={{ background: 'radial-gradient(40% 50% at 50% 55%, rgb(47 107 255 / 0.22), transparent 70%)' }} />
+        <span className="lp-arc lp-arc-glow w-[160vw] lg:w-[118vw] aspect-[2/1] top-[50%] lg:top-[48%]" />
+        <span className="lp-arc w-[160vw] lg:w-[118vw] aspect-[2/1] top-[50%] lg:top-[48%]" style={{ ['--t' as string]: '2px' }} />
+        <span className="lp-arc w-[190vw] lg:w-[140vw] aspect-[2/1] top-[58%] lg:top-[58%] opacity-40" style={{ ['--t' as string]: '1.5px' }} />
+        <div className="absolute inset-x-0 bottom-0 h-[40%]" style={{ background: 'radial-gradient(35% 60% at 0% 100%, rgb(255 90 31 / 0.35), transparent 70%), radial-gradient(35% 60% at 100% 100%, rgb(255 90 31 / 0.3), transparent 70%)' }} />
       </div>
-      {/* Satu cahaya bara rendah — bukan blob ungu */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-[60%]"
-        style={{ background: 'radial-gradient(60% 70% at 50% 100%, rgb(255 90 31 / 0.22), transparent 70%)' }} />
 
-      <div className="relative flex-1 max-w-[1320px] w-full mx-auto px-4 sm:px-6 grid lg:grid-cols-12 gap-8 items-center pt-8 lg:pt-0">
-        <div className="lg:col-span-5 relative z-10 space-y-7">
-          <p className="inline-flex items-center gap-2 rounded-[2px] border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[13px] text-white/75" data-reveal>
-            <span className="w-1.5 h-1.5 rounded-full bg-[rgb(var(--ember))]" aria-hidden="true" />{c.heroKicker}
-          </p>
-          <h1 id="hero-title" className="lp-display font-extrabold text-[40px] leading-[1.03] sm:text-6xl xl:text-[68px]" data-reveal style={{ ['--d' as string]: '80ms' }}>
-            {c.heroTitleA} <span className="text-[rgb(var(--ember))]">{c.heroTitleB}</span> {c.heroTitleC}
-          </h1>
-          <p className="text-[17px] leading-relaxed text-white/70 max-w-lg" data-reveal style={{ ['--d' as string]: '160ms' }}>{c.heroBody}</p>
-          <div className="space-y-4" data-reveal style={{ ['--d' as string]: '240ms' }}>
-            <AuditForm id="hero-url" />
-            <button type="button" onClick={openDemo} className="text-[15px] font-semibold text-white/80 hover:text-white underline underline-offset-4 decoration-white/30 hover:decoration-[rgb(var(--ember))]">
-              {c.heroDemo}
-            </button>
-          </div>
-        </div>
-
-        <div className="lg:col-span-5 relative h-[44svh] sm:h-[52svh] lg:h-[74svh]">
-          <HeroMascot />
-          <EvidenceChip kind="measured" label={c.chipMeasured} className="top-[18%] -start-4 xl:-start-10" delay="0s" />
-          <EvidenceChip kind="estimated" label={c.chipEstimated} className="top-[56%] end-0" delay="-3s" />
-          <EvidenceChip kind="ai" label={c.chipAi} className="bottom-[14%] start-0" delay="-6s" />
-        </div>
-
-        <div className="lg:col-span-2 relative z-10 hidden lg:flex flex-col items-end text-end gap-2" data-reveal style={{ ['--d' as string]: '320ms' }}>
-          <p className="lp-display font-black text-[104px] leading-none tracking-tighter"><Ltr>04</Ltr></p>
-          <p className="text-white/60 max-w-[200px]">{c.heroStatLabel}</p>
-          <div className="mt-4 flex gap-1.5 flex-wrap justify-end">
-            {['VoxSEO', 'VoxSocial', 'VoxAI', 'Journey'].map((m) => (
-              <span key={m} className="rounded-[2px] border border-white/15 px-2.5 py-1 text-[12px] text-white/70 lp-mono">{m}</span>
-            ))}
-          </div>
+      <div className="relative z-20 max-w-5xl w-full mx-auto px-4 sm:px-6 pt-6 sm:pt-10 flex flex-col items-center text-center gap-5">
+        <p className="inline-flex items-center gap-2 rounded-[2px] border border-white/15 bg-white/[0.04] backdrop-blur-sm px-3 py-1.5 text-[13px] text-white/80" data-reveal>
+          <span className="w-1.5 h-1.5 rounded-full bg-[rgb(var(--ember))]" aria-hidden="true" />{c.heroKicker}
+        </p>
+        <h1 id="hero-title" className="lp-display font-extrabold text-[38px] leading-[1.04] sm:text-6xl xl:text-[66px]" data-reveal style={{ ['--d' as string]: '80ms' }}>
+          {c.heroTitleA}<br className="hidden sm:block" /> <span className="text-[rgb(var(--ember))]">{c.heroTitleB}</span> {c.heroTitleC}
+        </h1>
+        <p className="text-[17px] leading-relaxed text-white/75 max-w-2xl" data-reveal style={{ ['--d' as string]: '160ms' }}>{c.heroBody}</p>
+        <div className="w-full flex flex-col items-center gap-3" data-reveal style={{ ['--d' as string]: '240ms' }}>
+          <AuditForm id="hero-url" />
+          <button type="button" onClick={openDemo} className="text-[15px] font-semibold text-white/80 hover:text-white underline underline-offset-4 decoration-white/30 hover:decoration-[rgb(var(--ember))]">
+            {c.heroDemo}
+          </button>
         </div>
       </div>
 
-      <a href="#statement" className="relative hidden lg:flex mx-auto mb-6 items-center gap-2 text-[13px] text-white/50 hover:text-white lp-mono">
-        {c.heroScroll}<ArrowDown className="w-4 h-4 animate-bounce motion-reduce:animate-none" aria-hidden="true" />
-      </a>
+      {/* Maskot dominan, setengah badan terpotong tepi bawah hero */}
+      <div className="relative flex-1 flex items-end -mt-16 lg:-mt-[40px]">
+        <HeroMascot />
+      </div>
 
-      <div className="relative border-y border-white/10 py-5">
+      <div className="relative z-10 border-y border-white/10 py-5 bg-[#07061a]/80 backdrop-blur-md">
         <p className="sr-only">{c.sourcesLabel}</p>
         <div className="max-w-[1320px] mx-auto px-4 sm:px-6 flex items-center gap-6">
           <span className="hidden md:block shrink-0 lp-mono text-[12px] uppercase text-white/45">{c.sourcesLabel}</span>

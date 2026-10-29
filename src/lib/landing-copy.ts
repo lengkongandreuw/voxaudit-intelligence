@@ -14,7 +14,7 @@ const en = {
   navDemo: 'Open demo',
   navMenu: 'Menu',
 
-  heroKicker: 'Growth intelligence for agencies and the businesses they serve',
+  heroKicker: 'Growth intelligence for agencies and businesses',
   heroTitleA: 'Turn any link into a',
   heroTitleB: 'growth plan',
   heroTitleC: 'you can prove.',
@@ -26,6 +26,7 @@ const en = {
   heroError: 'Paste a website or social profile link, like cedarco.example.',
   heroStatLabel: 'growth pillars, read in one audit',
   heroScroll: 'Scroll',
+  heroSpin: 'Drag to turn Ryan',
   chipMeasured: 'Measured · PageSpeed, 12 Oct',
   chipEstimated: 'Est. · third-party panel',
   chipAi: 'Summary · reviewed by your team',
@@ -107,7 +108,7 @@ const ar: Copy = {
   navDemo: 'افتح العرض',
   navMenu: 'القائمة',
 
-  heroKicker: 'ذكاء النمو للوكالات والأعمال التي تخدمها',
+  heroKicker: 'ذكاء النمو للوكالات والأعمال',
   heroTitleA: 'حوّل أي رابط إلى',
   heroTitleB: 'خطة نمو',
   heroTitleC: 'يمكنك إثباتها.',
@@ -119,6 +120,7 @@ const ar: Copy = {
   heroError: 'الصق رابط موقع أو حساب تواصل، مثل cedarco.example.',
   heroStatLabel: 'محاور نمو في تدقيق واحد',
   heroScroll: 'مرّر',
+  heroSpin: 'اسحب لتدوير رايان',
   chipMeasured: 'مُقاس · PageSpeed، 12 أكتوبر',
   chipEstimated: 'تقدير · لوحة طرف ثالث',
   chipAi: 'ملخّص · راجعه فريقك',
