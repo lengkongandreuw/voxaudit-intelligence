@@ -22,6 +22,7 @@ Stack: React 18, TypeScript, Tailwind 3, React Router 6 (hash routing so it runs
 | Workspace dashboard: empty, partial (stage status, failed source), populated | `src/pages/Dashboard.tsx` |
 | English / Arabic (RTL) toggle | `src/lib/i18n.ts` |
 | Placeholders for screens in Sprints 2–4, showing each screen's integrity rule | `src/pages/Planned.tsx` |
+| Marketing landing page (screen #1): EN/AR, mobile, scroll story, interactive evidence chart | `src/pages/Landing.tsx`, `src/lib/landing-copy.ts`, `src/lib/motion.ts` (`#/`) |
 
 Use **Prototype controls** in the top bar to switch role, dashboard state, language and canvas theme. On the sign-in screen, the password `wrong` shows the error state.
 
@@ -35,6 +36,13 @@ Use **Prototype controls** in the top bar to switch role, dashboard state, langu
 - **Mascot** only on sign-in and empty/onboarding states — never in reports or PDFs.
 - **Sample data banner** on every screen.
 - URL shape: `/w/{workspace}/c/{client}/…`. Switching client navigates, which clears context.
+
+## Landing page performance
+
+- No animation library: reveal, scroll progress, tilt, magnetic buttons and count-up are ~150 lines in `src/lib/motion.ts`, animating only `transform`/`opacity`.
+- The hero shows a 60 KB WebP poster of the mascot first; the 3D model and model-viewer load on idle, **desktop only**, and are skipped for reduced motion or Save-Data.
+- The app (shell, dashboard, design system) is code-split, so the landing bundle is ~87 KB gzip JS.
+- Copy contains no customer counts, ratings or testimonials (Phase 1 rule for screen #1). Numbers shown are product facts.
 
 ## Notes for review
 

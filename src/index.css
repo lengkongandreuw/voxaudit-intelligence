@@ -116,3 +116,111 @@
       135deg, currentColor 0 2px, transparent 2px 6px);
   }
 }
+
+/* ==========================================================================
+   Landing page (layar #1) — editorial, gelap, aksen bara dari batang logo.
+   Semua gerak hanya transform/opacity; dimatikan oleh prefers-reduced-motion.
+   ========================================================================== */
+@layer components {
+.lp {
+  --ember: 255 90 31;      /* #ff5a1f  dari batang logo — teks besar/isi saja */
+  --ember-2: 255 176 32;   /* #ffb020 */
+  --ice: 0 229 255;        /* #00e5ff  dari huruf V */
+  --night: 7 6 26;         /* #07061a */
+  background: rgb(var(--night));
+  color: #f3f3f8;
+  overflow-x: clip;
+}
+.lp ::selection { background: rgb(var(--ember)); color: #07061a; }
+
+.lp [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  transition: opacity .9s cubic-bezier(.2,.7,.2,1), transform .9s cubic-bezier(.2,.7,.2,1);
+  transition-delay: var(--d, 0ms);
+}
+.lp [data-reveal][data-in] { opacity: 1; transform: none; }
+
+.lp-display { font-family: Montserrat, Inter, 'IBM Plex Sans Arabic', sans-serif; letter-spacing: -0.035em; }
+[dir='rtl'] .lp-display { font-family: 'IBM Plex Sans Arabic', Montserrat, sans-serif; letter-spacing: 0; }
+
+.lp-outline { color: transparent; -webkit-text-stroke: 1.5px rgb(255 255 255 / 0.13); }
+
+.lp-mono { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; letter-spacing: 0.02em; }
+
+/* Kata yang menyala mengikuti scroll */
+.lp-word {
+  opacity: calc(0.16 + 0.84 * clamp(0, calc(var(--p, 0) * var(--n) * 1.12 - var(--i)), 1));
+}
+
+/* Marquee sumber data */
+.lp-marquee { mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+.lp-marquee-track { animation: lp-marquee 38s linear infinite; }
+.lp-marquee:hover .lp-marquee-track { animation-play-state: paused; }
+@keyframes lp-marquee { from { transform: translate3d(0,0,0); } to { transform: translate3d(-50%,0,0); } }
+
+/* Kartu dengan sorotan & kemiringan pointer */
+.lp-card {
+  position: relative;
+  background: rgb(255 255 255 / 0.035);
+  border: 1px solid rgb(255 255 255 / 0.09);
+  border-radius: 22px;
+  transform: perspective(1000px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform .4s cubic-bezier(.2,.7,.2,1), border-color .3s;
+  isolation: isolate;
+}
+.lp-card::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; z-index: -1; opacity: 0; transition: opacity .3s;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgb(var(--ember) / 0.14), transparent 60%);
+}
+.lp-card:hover { border-color: rgb(255 255 255 / 0.18); }
+.lp-card:hover::before { opacity: 1; }
+
+/* Motif batang miring dari logo */
+.lp-bars { display: inline-flex; gap: 4px; transform: skewX(-24deg); }
+.lp-bars > i { display: block; height: 6px; border-radius: 2px; }
+
+/* Tombol */
+.lp-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  height: 52px; padding: 0 1.5rem; border-radius: 999px; font-weight: 700; font-size: 15px; white-space: nowrap;
+  transition: transform .35s cubic-bezier(.2,.7,.2,1), background-color .2s, box-shadow .3s;
+}
+.lp-btn-ember { background: rgb(var(--ember)); color: #07061a; box-shadow: 0 10px 30px -12px rgb(var(--ember) / 0.7); }
+.lp-btn-ember:hover { background: #ff6d3a; box-shadow: 0 14px 36px -12px rgb(var(--ember) / 0.9); }
+.lp-btn-ghost { border: 1px solid rgb(255 255 255 / 0.22); color: #fff; }
+.lp-btn-ghost:hover { background: rgb(255 255 255 / 0.07); }
+.lp-btn:active { transform: scale(.97); }
+.lp-btn .lp-arrow { transition: transform .3s cubic-bezier(.2,.7,.2,1); }
+.lp-btn:hover .lp-arrow { transform: translateX(4px); }
+[dir='rtl'] .lp-btn .lp-arrow { transform: scaleX(-1); }
+[dir='rtl'] .lp-btn:hover .lp-arrow { transform: scaleX(-1) translateX(4px); }
+
+/* Mini-UI di kartu pilar: digerakkan saat kartu terlihat */
+.lp-grow { transform-origin: left center; transform: scaleX(0); transition: transform 1.1s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0ms); }
+[dir='rtl'] .lp-grow { transform-origin: right center; }
+[data-in] .lp-grow { transform: scaleX(var(--w, 1)); }
+.lp-pop { opacity: 0; transform: translateY(10px) scale(.96); transition: opacity .6s, transform .6s cubic-bezier(.2,.7,.2,1); transition-delay: var(--d, 0ms); }
+[data-in] .lp-pop { opacity: 1; transform: none; }
+
+/* Maskot hero */
+.lp-float { animation: lp-float 7s ease-in-out infinite; }
+@keyframes lp-float { 0%,100% { transform: translate3d(0,0,0); } 50% { transform: translate3d(0,-14px,0); } }
+.lp-chip { animation: lp-float 9s ease-in-out infinite; animation-delay: var(--d, 0s); }
+
+/* Kartu bahasa yang dibalik */
+.lp-flip { transform-style: preserve-3d; transition: transform .9s cubic-bezier(.2,.7,.2,1); }
+.lp-flip[data-flipped='true'] { transform: rotateY(180deg); }
+.lp-face { backface-visibility: hidden; }
+.lp-face-back { transform: rotateY(180deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .lp [data-reveal] { opacity: 1; transform: none; }
+  .lp-marquee-track, .lp-float, .lp-chip { animation: none; }
+  .lp-word { opacity: 1; }
+  .lp-grow { transform: scaleX(var(--w, 1)); }
+  .lp-pop { opacity: 1; transform: none; }
+}
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }

@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { AlertCircle, Building2, CheckCircle2, Clock, KeyRound, Mail } from 'lucide-react';
 import { useProto, type Role } from '../lib/prototype';
 import { homePath } from '../lib/workspace';
@@ -46,6 +46,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   const { t } = p;
   const navigate = useNavigate();
   const { token } = useParams();
+  const auditUrl = (useLocation().state as { auditUrl?: string } | null)?.auditUrl;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -149,6 +150,11 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     title = t('auth.signUp.title'); sub = t('auth.signUp.sub');
     body = (
       <>
+        {auditUrl && (
+          <p className="rounded-lg border border-primary/40 bg-primary-soft text-primary-strong p-3 text-sm">
+            {p.lang === 'ar' ? 'سيبدأ التدقيق الأول على ' : 'Your first audit will run on '}<bdi dir="ltr" className="font-semibold">{auditUrl}</bdi>
+          </p>
+        )}
         {providers}
         <form onSubmit={onSignUp} noValidate className="space-y-4">
           <fieldset>
